@@ -1,0 +1,92 @@
+var inherits = require('util').inherits;
+var Service, Characteristic, VolumeCharacteristic;
+
+module.exports = function(homebridge) {
+	Service = homebridge.hap.Service;
+	Characteristic = homebridge.hap.Characteristic;
+	homebridge.registerAccessory("homebridge-sonos-starter", "SonosStarter", SonosAccessory);
+}
+
+const httpRequest = function(url) {
+  return new Promise((resolve, reject) => {
+    const lib = url.startsWith('https') ? require('https') : require('http');
+    const request = lib.get(url, (response) => {
+      if (response.statusCode < 200 || response.statusCode > 299) {
+         reject(new Error('Failed to load page, status code: ' + response.statusCode));
+       }
+      const body = [];
+      response.on('data', (chunk) => body.push(chunk));
+      response.on('end', () => resolve(body.join('')));
+    });
+    request.on('error', (err) => reject(err))
+    })
+};
+
+function SonosAccessory(log, config) {
+	this.log = log;
+	this.config = config;
+	this.name = config["name"];
+	this.apiBaseUrl = config["apiBaseUrl"];
+	this.preset = config["preset"];
+
+	if (!this.apiBaseUrl) throw new Error("You must provide a config value for 'apiBaseUrl'.");
+	if (!this.preset) throw new Error("You must provide a config value for 'preset'.");
+
+	this.service = new Service.Switch(this.name);
+
+	this.service
+		.getCharacteristic(Characteristic.On)
+		.on('get', this.getOn.bind(this))
+		.on('set', this.setOn.bind(this));
+}
+
+SonosAccessory.prototype.getServices = function() {
+	return [this.service];
+}
+
+SonosAccessory.prototype.getOn = function(callback) {
+	var anyPlaying = false;
+	httpRequest(this.apiBaseUrl + "/zones")
+		.then((data) => {
+			this.log("getting zones");
+			const zones = JSON.parse(data);
+			zones.forEach((zone) => {
+				this.log(">  " + zone.coordinator.roomName + ": " + zone.coordinator.state.playbackState);
+				if(zone.coordinator.state.playbackState === "PLAYING") {
+					anyPlaying = true;
+				}
+			});			
+			this.log("reporting", anyPlaying);
+			callback(null, anyPlaying);
+		})
+		.catch((err) => {
+	  		this.log("fail", err);
+	  		callback(err);
+		});
+}
+
+SonosAccessory.prototype.setOn = function(on, callback) {
+	if (on) {
+		this.log("About to start " + this.preset + "...");
+		httpRequest(this.apiBaseUrl + "/preset/" + this.preset)
+	  		.then((data) => {
+	  			this.log("done");
+				callback(null);
+	  		})
+	  		.catch((err) => {
+	  			this.log("fail", err);
+	  			callback(err);
+	  		});
+
+	} else {
+		httpRequest(this.apiBaseUrl + "/pauseAll")
+	  		.then((data) => {
+	  			this.log("paused all");
+				callback(null);
+	  		})
+	  		.catch((err) => {
+	  			this.log("pauseall failed", err);
+	  			callback(err);
+	  		});
+	}
+}

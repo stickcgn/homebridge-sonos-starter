@@ -1,0 +1,21 @@
+{
+  "name": "homebridge-sonos-starter",
+  "version": "1.0.0",
+  "description": "Sonos plugin for homebridge: https://github.com/nfarina/homebridge that starts presets via https://github.com/jishi/node-sonos-http-api",
+  "license": "ISC",
+  "keywords": [
+    "homebridge-plugin", "sonos"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stickcgn/homebridge-sonos-starter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stickcgn/homebridge-sonos-starter/issues"
+  },
+  "engines": {
+    "node": ">=0.12.0",
+    "homebridge": ">=0.2.0"
+  },
+  "dependencies": {}
+}
